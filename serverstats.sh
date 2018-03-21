@@ -7,7 +7,7 @@ mem_usage=$(free -m | awk 'NR==2{printf "Memory Usage: %s/%sMB (%.2f%%)\n", $3,$
 cpu_load=$(top -bn1 | grep load | awk '{printf "CPU Load: %.2f\n", $(NF-2)}')
 
 # Check Media Services
-services="plexmediaserver qbittorrent nomad hass sonarr radarr"
+services="plexmediaserver qbittorrent nomad hass sonarr"
 for i in ${services}; do
  systemctl is-active --quiet ${i}
  service_chk=$?
