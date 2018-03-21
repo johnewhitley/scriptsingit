@@ -2,11 +2,12 @@
 
 data_free=$(df -H | grep data | awk '{print $4}')
 rsync_free=$(df -H | grep rsync | awk '{print $4}')
+boot_free=$(df -H | grep boot | awk '{print $4}')
 mem_usage=$(free -m | awk 'NR==2{printf "Memory Usage: %s/%sMB (%.2f%%)\n", $3,$2,$3*100/$2 }')
 cpu_load=$(top -bn1 | grep load | awk '{printf "CPU Load: %.2f\n", $(NF-2)}')
 
 # Check Media Services
-services="plexmediaserver qbittorrent"
+services="plexmediaserver qbittorrent nomad hass sonarr radarr"
 for i in ${services}; do
  systemctl is-active --quiet ${i}
  service_chk=$?
@@ -19,42 +20,47 @@ for i in ${services}; do
  fi
 done
 
-#Check for Prometheus and Grafana
-prometheus="whitleyserver.ddns.net:9090"
-grafana="whitleyserver.ddns.net:3000"
+prometheus="whitleyserver.ddns.net:9090/graph"
+grafana="whitleyserver.ddns.net:3000/login"
 containers="${prometheus} ${grafana}"
-for i in ${containers}; do
-  curl -s -I -L ${containers} | grep "HTTP/1.1" | awk {'print $2'}
-  if [[ ${containers} == 200 ]]; then
-    container_status="good"
-  elif [[ ${containers} != 200 ]]; then
-    bad_container=${containers}
-    container_status="bad"
-    break
-  fi
-done
 
-if [[ "${containers}" == "bad" ]]; then
-  container_slack="${bad_container} is not running correctly!!!"
-else
-  container_slack="All containers are running correctly!!! :+1:"
+prometheuschk=$(curl -S -i http://whitleyserver.ddns.net:9090/status| grep "OK" | awk {'print $2'})
+grafanachk=$(curl -s -I -L ${grafana} | grep "HTTP/1.1" | grep "OK" | awk {'print $2'})
+
+containercheck() {
+if [[ ${prometheuschk} == 200 ]]; then
+  promchk="good"
+elif [[ ${prometheuschk} != 200 ]]; then
+  bad_container="Prometheus"
 fi
+if [[ ${grafanachk} == 200 ]]; then
+  grafchk="good"
+elif [[ ${grafanachk} != 200 ]]; then
+  bad_container="Grafana"
+fi
+}
+
+
+containerstat() {
+if [[ -n ${bad_container} ]]; then
+  container_slack="${bad_container} is not running correctly!"
+  container_status="bad"
+else
+  container_slack="All containers are running correctly! :+1:"
+  container_status="good"
+fi
+}
+
+
+#Main
+containercheck
+containerstat
 
 if [[ "${services_status}" == "bad" ]]; then
- services_slack="${bad_service} is not running correctly!!!"
+ services_slack="${bad_service} is not running correctly!"
 else
  services_slack="All media server services are running correctly! :+1:"
 fi
-
-# Set Slack post for /opt being lowf
-#opt_trimmed=$(echo ${data_free} | sed 's/[A-Za-z]*//g')
-#if [[ ${opt_trimmed} -le 1.3 ]]; then
-# storage_status="bad"
-#else
-storage_status="good"
-#fi
-
-
 
 #JSON Array for slack post
 foo=$(cat <<EOF
@@ -77,8 +83,8 @@ foo=$(cat <<EOF
       },
       {
          "title":"Storage Check",
-         "text":"Free Space in /data: ${data_free}\nFree Space in /rsync: ${rsync_free}",
-         "color":"${storage_status}"
+         "text":"Free Space in /data: ${data_free}\nFree Space in /rsync: ${rsync_free}\nFree Space in /boot ${boot_free}",
+         "color":"good"
       },
       {
          "title":"Service Checks",
@@ -88,7 +94,7 @@ foo=$(cat <<EOF
       {
          "title":"Container Checks",
          "text":"${container_slack}",
-         "color":"good"
+         "color":"${container_status}"
       }
    ]
 }
