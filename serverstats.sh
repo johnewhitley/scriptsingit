@@ -3,11 +3,13 @@
 data_free=$(df -H | grep data | awk '{print $4}')
 rsync_free=$(df -H | grep rsync | awk '{print $4}')
 boot_free=$(df -H | grep boot | awk '{print $4}')
+opt_free=$(df -H | grep /dev/mapper | awk '{print $4}')
 mem_usage=$(free -m | awk 'NR==2{printf "Memory Usage: %s/%sMB (%.2f%%)\n", $3,$2,$3*100/$2 }')
 cpu_load=$(top -bn1 | grep load | awk '{printf "CPU Load: %.2f\n", $(NF-2)}')
+current_downloads=$(ls /opt/nzbget/downloads/intermediate)
 
 # Check Media Services
-services="plexmediaserver qbittorrent nomad hass sonarr"
+services="nzbget radarr plexmediaserver qbittorrent nomad hass sonarr"
 for i in ${services}; do
  systemctl is-active --quiet ${i}
  service_chk=$?
@@ -83,7 +85,12 @@ foo=$(cat <<EOF
       },
       {
          "title":"Storage Check",
-         "text":"Free Space in /data: ${data_free}\nFree Space in /rsync: ${rsync_free}\nFree Space in /boot ${boot_free}",
+         "text":"Free Space in /data: ${data_free}\nFree Space in /rsync: ${rsync_free}\nFree Space in /boot: ${boot_free}\nFree Space in /opt: ${opt_free}",
+         "color":"good"
+      },
+      {
+         "title":"Current Downloads",
+         "text":"${current_downloads}",
          "color":"good"
       },
       {
@@ -103,3 +110,4 @@ EOF
 
 
 curl -X POST --data-urlencode "payload=$foo" https://hooks.slack.com/services/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
+
