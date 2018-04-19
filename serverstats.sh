@@ -22,7 +22,7 @@ for i in ${services}; do
  fi
 done
 
-#Clarifying container URLs to check
+# Clarifying container URLs to check
 prometheus="whitleyserver.ddns.net:9090/graph"
 grafana="whitleyserver.ddns.net:3000/login"
 containers="${prometheus} ${grafana}"
@@ -30,7 +30,7 @@ containers="${prometheus} ${grafana}"
 prometheuschk=$(curl -S -i http://whitleyserver.ddns.net:9090/status| grep "OK" | awk {'print $2'})
 grafanachk=$(curl -s -I -L ${grafana} | grep "HTTP/1.1" | grep "OK" | awk {'print $2'})
 
-#Check Container Status
+# Check Container Status
 containercheck() {
 if [[ ${prometheuschk} == 200 ]]; then
   promchk="good"
@@ -50,7 +50,7 @@ if [[ -n ${bad_container} ]]; then
   container_slack="${bad_container} is not running correctly!"
   container_status="bad"
 else
-  container_slack="All containers are running correctly! :+1:"
+  container_slack="All containers are running correctly!"
   container_status="good"
 fi
 }
@@ -58,10 +58,11 @@ fi
 # Current Downloads Check
 currentdownloadschk() {
   current_downloadschk=$(ls /opt/nzbget/downloads/intermediate)
-if [[ ${current_downloadschk} -e ]]; then
-  ${current_downloadschk}=${current_downloads}
+if [[ -n ${current_downloadschk} ]]; then
+  current_downloads=$(ls /opt/nzbget/downloads/intermediate)
 else
-  ${current_downloads}="Currently, there are no downloads in the queue."
+  current_downloads="Currently, there are no downloads in the queue."
+fi
 }
 
 #Main
@@ -72,7 +73,7 @@ currentdownloadschk
 if [[ "${services_status}" == "bad" ]]; then
  services_slack="${bad_service} is not running correctly!"
 else
- services_slack="All media server services are running correctly! :+1:"
+ services_slack="All media server services are running correctly!"
 fi
 
 #JSON Array for slack post
@@ -118,6 +119,5 @@ foo=$(cat <<EOF
 }
 EOF
 )
-
 
 curl -X POST --data-urlencode "payload=$foo" https://hooks.slack.com/services/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
