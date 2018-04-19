@@ -6,7 +6,7 @@ boot_free=$(df -H | grep boot | awk '{print $4}')
 opt_free=$(df -H | grep /dev/mapper | awk '{print $4}')
 mem_usage=$(free -m | awk 'NR==2{printf "Memory Usage: %s/%sMB (%.2f%%)\n", $3,$2,$3*100/$2 }')
 cpu_load=$(top -bn1 | grep load | awk '{printf "CPU Load: %.2f\n", $(NF-2)}')
-current_downloads=$(ls /opt/nzbget/downloads/intermediate)
+
 
 # Check Media Services
 services="nzbget radarr plexmediaserver qbittorrent nomad hass sonarr"
@@ -22,6 +22,7 @@ for i in ${services}; do
  fi
 done
 
+#Clarifying container URLs to check
 prometheus="whitleyserver.ddns.net:9090/graph"
 grafana="whitleyserver.ddns.net:3000/login"
 containers="${prometheus} ${grafana}"
@@ -29,6 +30,7 @@ containers="${prometheus} ${grafana}"
 prometheuschk=$(curl -S -i http://whitleyserver.ddns.net:9090/status| grep "OK" | awk {'print $2'})
 grafanachk=$(curl -s -I -L ${grafana} | grep "HTTP/1.1" | grep "OK" | awk {'print $2'})
 
+#Check Container Status
 containercheck() {
 if [[ ${prometheuschk} == 200 ]]; then
   promchk="good"
@@ -42,7 +44,7 @@ elif [[ ${grafanachk} != 200 ]]; then
 fi
 }
 
-
+# Check Status of Containers
 containerstat() {
 if [[ -n ${bad_container} ]]; then
   container_slack="${bad_container} is not running correctly!"
@@ -53,10 +55,19 @@ else
 fi
 }
 
+# Current Downloads Check
+currentdownloadschk() {
+  current_downloadschk=$(ls /opt/nzbget/downloads/intermediate)
+if [[ ${current_downloadschk} -e ]]; then
+  ${current_downloadschk}=${current_downloads}
+else
+  ${current_downloads}="Currently, there are no downloads in the queue."
+}
 
 #Main
 containercheck
 containerstat
+currentdownloadschk
 
 if [[ "${services_status}" == "bad" ]]; then
  services_slack="${bad_service} is not running correctly!"
@@ -110,4 +121,3 @@ EOF
 
 
 curl -X POST --data-urlencode "payload=$foo" https://hooks.slack.com/services/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
-
